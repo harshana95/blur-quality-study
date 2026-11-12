@@ -65,6 +65,7 @@ select { font: inherit; font-size: 0.9rem; border: 1px solid var(--line); border
 .transport input[type=range] { flex: 1 1 160px; min-width: 120px; accent-color: var(--accent); }
 .q { display: grid; gap: 6px; }
 .q .opts { display: flex; flex-wrap: wrap; gap: 8px; }
+button.quiet { font-size: 0.8rem; padding: 3px 8px; color: var(--muted); }
 .status { font-size: 0.88rem; color: var(--muted); min-height: 1.3em; }
 .status.err { color: var(--warn); }
 textarea { width: 100%; min-height: 7em; font-family: var(--font-mono); font-size: 0.78rem; border: 1px solid var(--line); border-radius: 6px; padding: 8px; background: var(--bg); color: var(--ink); }
@@ -131,7 +132,7 @@ dialog p { margin: 0 0 10px; }
   <section class="panel" id="bench" hidden>
     <div class="row" style="justify-content: space-between">
       <h2 id="title">Pair 1</h2>
-      <span class="meta" id="pos"></span>
+      <span class="row"><span class="meta" id="pos"></span><button type="button" class="quiet" id="finish">Stop early…</button></span>
     </div>
     <div class="photo"><img id="photo" alt="The blurred photo both videos were made from"><span class="hint">The blurred photo</span></div>
     <div class="pair">
@@ -155,7 +156,6 @@ dialog p { margin: 0 0 10px; }
     </div>
     <div class="row">
       <button type="button" class="primary" id="next" disabled>Next</button>
-      <button type="button" id="finish">Finish now</button>
       <span class="status" id="status" role="status"></span>
     </div>
   </section>
@@ -164,7 +164,7 @@ dialog p { margin: 0 0 10px; }
     <h2>Your answers</h2>
     <p id="handintro" class="hint"></p>
     <textarea id="hbtext" readonly aria-label="Your answers as text"></textarea>
-    <div class="row"><button type="button" id="hbretry" hidden>Send again</button><button type="button" id="hbcopy">Copy text</button></div>
+    <div class="row"><button type="button" class="primary" id="goback" hidden>Go back to the remaining pairs</button><button type="button" id="hbretry" hidden>Send again</button><button type="button" id="hbcopy">Copy text</button></div>
     <div class="status" id="hbstatus" role="status"></div>
   </section>
 </div>
@@ -174,6 +174,12 @@ dialog p { margin: 0 0 10px; }
   <p>Your answers help us find out which way of rebuilding a video from one blurred photo people prefer.</p>
   <p class="hint" id="thanksmsg"></p>
   <div class="row" style="justify-content:flex-end"><button type="button" class="primary" id="thanksclose">Close</button></div>
+</dialog>
+
+<dialog id="stopask" aria-labelledby="stophead">
+  <h2 id="stophead">Stop early?</h2>
+  <p id="stopmsg"></p>
+  <div class="row" style="justify-content:flex-end"><button type="button" class="primary" id="stopno">Keep going</button><button type="button" id="stopyes">Stop and send</button></div>
 </dialog>
 
 <script>
@@ -289,7 +295,18 @@ $("next").addEventListener("click", () => {
   S.idx++; save(); flush();
   if (S.idx >= S.plan.length) finish(); else show();
 });
-$("finish").addEventListener("click", finish);
+function openDlg(d) { if (!d.open) { if (d.showModal) d.showModal(); else d.setAttribute("open", ""); } }
+function closeDlg(d) { if (d.close) d.close(); else d.removeAttribute("open"); }
+$("finish").addEventListener("click", () => {
+  const n = Object.keys(S.votes).length;
+  $("stopmsg").textContent = "You have answered " + n + " of " + S.plan.length + " pairs. The answers you gave are kept and sent; you can also come back later in this browser to do the rest.";
+  setPlaying(false); openDlg($("stopask"));
+});
+$("stopno").addEventListener("click", () => { closeDlg($("stopask")); setPlaying(true); });
+$("stopyes").addEventListener("click", () => { closeDlg($("stopask")); finish(); });
+$("goback").addEventListener("click", () => {
+  closeDlg($("thanks")); $("handin").hidden = true; $("bench").hidden = false; show();
+});
 function renderProgress() { $("progress").textContent = Object.keys(S.votes).length + " of " + S.plan.length + " pairs answered"; }
 function save() { lsSet("uq2.state", JSON.stringify({ pid: S.pid, plan: S.plan, idx: S.idx, votes: S.votes, initials: $("initials").value, started: S.started })); }
 
@@ -314,10 +331,13 @@ function flush() {
 }
 function finish() {
   setPlaying(false); $("bench").hidden = true; $("handin").hidden = false; renderProgress();
-  const n = Object.keys(S.votes).length;
+  const n = Object.keys(S.votes).length, rest = S.plan.length - S.idx;
+  $("goback").hidden = rest <= 0;
+  $("goback").textContent = rest === 1 ? "Go back to the last pair" : "Go back to the remaining " + rest + " pairs";
+  $("thankshead").textContent = rest > 0 ? "Thank you so far!" : "Thank you!";
   $("hbtext").value = JSON.stringify({ protocol: PROTOCOL, pid: S.pid, initials: ($("initials").value || "").trim().slice(0, 6), started_at: S.started, votes: Object.values(S.votes) });
   const d = $("thanks"); $("thanksmsg").textContent = SUBMIT_URL ? "Sending your answers…" : n + " pairs answered. One more step: send your answers as shown on the page behind this message.";
-  if (!d.open) { if (d.showModal) d.showModal(); else d.setAttribute("open", ""); }
+  openDlg(d);
   report();
 }
 function report() {
@@ -327,8 +347,9 @@ function report() {
   flush().then((left) => {
     $("hbretry").hidden = !left;
     $("handintro").textContent = left ? (n - left) + " of " + n + " answers were sent. Press Send again, or copy the text below and send it to the person who gave you this link."
+      : S.idx < S.plan.length ? "Your " + n + " answers were sent. " + (S.plan.length - S.idx) + " pairs are left: press Go back to do them, or close this page."
       : "All " + n + " answers were sent. Thank you. You can close this page.";
-    if ($("thanks").open) $("thanksmsg").textContent = left ? (n - left) + " of " + n + " answers were sent. Close this message and press Send again." : "All " + n + " answers were sent. You can close this page.";
+    if ($("thanks").open) $("thanksmsg").textContent = left ? (n - left) + " of " + n + " answers were sent. Close this message and press Send again." : (S.idx < S.plan.length ? "Your " + n + " answers were sent. You can close this message and go back to the remaining pairs." : "All " + n + " answers were sent. You can close this page.");
   });
 }
 $("hbretry").addEventListener("click", report);
