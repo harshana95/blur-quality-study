@@ -27,9 +27,21 @@ h1 { font-size: 1.35rem; margin: 0; }
 h2 { font-size: 1.05rem; margin: 0; }
 .meta { color: var(--muted); font-family: var(--font-mono); font-size: 0.82rem; font-variant-numeric: tabular-nums; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; min-width: 0; display: grid; gap: 10px; }
-.intro { max-width: 80ch; }
+.intro { max-width: 92ch; }
 .intro p, .intro ol { margin: 0; }
 .intro ol { padding-left: 1.3em; display: grid; gap: 4px; }
+.tut { display: grid; gap: 12px; }
+.ex { border: 1px solid var(--line); border-radius: 8px; padding: 10px; display: grid; gap: 8px; background: var(--bg); }
+.ex h3 { font-size: 0.95rem; margin: 0; }
+.exrow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 560px) { .exrow { grid-template-columns: minmax(0, 1fr); } }
+.exrow figure { margin: 0; display: grid; gap: 3px; }
+.exrow canvas { width: 100%; aspect-ratio: 240 / 138; border-radius: 5px; display: block; background: var(--line); }
+.exrow figcaption { font-size: 0.82rem; color: var(--muted); }
+.exrow figcaption b { color: var(--ink); }
+.good { color: var(--done); font-weight: 700; }
+.poor { color: var(--warn); font-weight: 700; }
+.howto { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; }
 .hint { font-size: 0.85rem; color: var(--muted); margin: 0; }
 .banner { border: 1px solid var(--warn); color: var(--warn); border-radius: 6px; padding: 8px 12px; font-size: 0.9rem; }
 .row { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
@@ -78,6 +90,37 @@ dialog p { margin: 0 0 10px; }
       <li>Answer two questions: which video is <b>sharper and cleaner</b>, and in which the <b>motion looks more natural</b> for this photo. Pick "No difference" if you cannot tell.</li>
       <li>Press <b>Next</b>. Your answers are saved after every pair, so you can stop and come back.</li>
     </ol>
+
+    <div class="tut" aria-label="Tutorial with two made-up examples">
+      <h2>What to look for</h2>
+      <p class="hint">The two examples below are drawings made for this tutorial, not videos from the study. They only show what each question means.</p>
+      <div class="ex">
+        <h3>Question 1: which video is sharper and cleaner?</h3>
+        <div class="exrow">
+          <figure><canvas id="t1p" width="240" height="138" role="img" aria-label="Made-up blurred photo of a car that moved to the right"></canvas><figcaption><b>The blurred photo.</b> The car moved, so it is smeared.</figcaption></figure>
+          <figure><canvas id="t1a" width="240" height="138" role="img" aria-label="Made-up video in which the car has crisp edges in every frame"></canvas><figcaption><span class="good">Better.</span> In every frame the car has crisp edges and clear details.</figcaption></figure>
+          <figure><canvas id="t1b" width="240" height="138" role="img" aria-label="Made-up video in which the car is soft and has doubled edges"></canvas><figcaption><span class="poor">Worse.</span> The car is still soft, with doubled edges left over from the blur.</figcaption></figure>
+        </div>
+        <p class="hint">Look at single frames, mostly at the things that moved: pause and step frame by frame. Count leftover blur, doubled or ghost edges, smeared texture, flicker and invented patterns as "less clean". Ignore small differences in brightness or colour.</p>
+      </div>
+      <div class="ex">
+        <h3>Question 2: in which video does the motion look more natural for this photo?</h3>
+        <div class="exrow">
+          <figure><canvas id="t2p" width="240" height="138" role="img" aria-label="Made-up blurred photo of a ball that moved along a streak"></canvas><figcaption><b>The blurred photo.</b> The streak shows the path and how far the ball went.</figcaption></figure>
+          <figure><canvas id="t2a" width="240" height="138" role="img" aria-label="Made-up video in which the ball moves smoothly along the streak"></canvas><figcaption><span class="good">Better.</span> The ball moves steadily along the streak and keeps its shape.</figcaption></figure>
+          <figure><canvas id="t2b" width="240" height="138" role="img" aria-label="Made-up video in which the ball jumps back and forth and changes shape"></canvas><figcaption><span class="poor">Worse.</span> The ball jumps back and forth and changes shape between frames.</figcaption></figure>
+        </div>
+        <p class="hint">Let the video loop a few times, slow it down if needed. Natural motion is steady, follows the streaks you see in the photo and covers about as much distance as they show; things keep their shape, and what was still in the photo stays still. Either direction along a streak is fine: the photo does not tell which way things went.</p>
+      </div>
+      <h2>How to judge</h2>
+      <ul class="howto">
+        <li>Judge the two questions separately. A video can be sharper but move less naturally, or the other way round.</li>
+        <li>Compare the two videos with each other, not with a perfect video. Neither needs to be good for one to be better.</li>
+        <li>Choose "No difference" only when you really cannot tell after stepping through the frames.</li>
+        <li>Which program is A or B changes from pair to pair, so judge every pair on its own.</li>
+        <li>Keys: space plays or pauses, the left and right arrow keys step one frame.</li>
+      </ul>
+    </div>
     <p class="hint"><span id="ntrials">23</span> pairs, about 8 minutes. What is stored: your answers, the time you gave them, a random id kept in this browser and the initials you type below (optional); no name, email or address. They are used only to compare video reconstruction methods.</p>
     <div class="row">
       <label class="field" for="initials">Initials (optional)<input type="text" id="initials" maxlength="6" autocomplete="off"></label>
@@ -296,12 +339,60 @@ $("hbcopy").addEventListener("click", () => {
   navigator.clipboard.writeText($("hbtext").value).then(() => { st.textContent = "Copied."; }, fb);
 });
 
+// ---------- tutorial drawings (made-up scenes; five frames like the study's videos) ----------
+const TUT = { pos: [0.22, 0.36, 0.5, 0.64, 0.78], jit: [0.22, 0.62, 0.34, 0.78, 0.48] };
+function tBack(g, kind) {
+  const W = 240, H = 138, sky = g.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, kind === "car" ? "#9cc7ea" : "#cfd8e2"); sky.addColorStop(1, kind === "car" ? "#e4eef6" : "#eef1f4");
+  g.fillStyle = sky; g.fillRect(0, 0, W, H);
+  if (kind === "car") {
+    g.fillStyle = "#6f8f5a"; g.fillRect(0, 84, W, 12); g.fillStyle = "#5b5f66"; g.fillRect(0, 96, W, 42);
+    g.fillStyle = "#e9e3c8"; for (let x = 8; x < W; x += 44) g.fillRect(x, 115, 22, 3);
+    g.fillStyle = "#7a5a3c"; g.fillRect(28, 52, 6, 34); g.fillStyle = "#3f7d4a"; g.beginPath(); g.arc(31, 46, 17, 0, 6.3); g.fill();
+    g.fillStyle = "#c9b79c"; g.fillRect(176, 48, 44, 38); g.fillStyle = "#8a4b3a"; g.beginPath(); g.moveTo(170, 48); g.lineTo(198, 28); g.lineTo(226, 48); g.fill();
+    g.fillStyle = "#5d7691"; g.fillRect(184, 58, 10, 10); g.fillRect(202, 58, 10, 10);
+  } else {
+    g.fillStyle = "#b9a88f"; g.fillRect(0, 104, W, 34); g.fillStyle = "#8d7c66"; g.fillRect(0, 104, W, 3);
+    g.fillStyle = "#6c7a89"; g.fillRect(14, 60, 26, 44); g.fillStyle = "#93a3b3"; g.fillRect(18, 66, 8, 10); g.fillRect(29, 66, 8, 10);
+    g.fillStyle = "#7a5a3c"; g.fillRect(204, 70, 5, 34); g.fillStyle = "#4b8756"; g.beginPath(); g.arc(206, 62, 15, 0, 6.3); g.fill();
+  }
+}
+function tCar(g, x, a) {
+  g.globalAlpha = a; const y = 96;
+  g.fillStyle = "#c8372d"; g.fillRect(x - 30, y - 22, 60, 16);
+  g.beginPath(); g.moveTo(x - 18, y - 22); g.lineTo(x - 10, y - 36); g.lineTo(x + 12, y - 36); g.lineTo(x + 22, y - 22); g.fill();
+  g.fillStyle = "#cfe6f5"; g.fillRect(x - 8, y - 33, 8, 9); g.fillRect(x + 3, y - 33, 9, 9);
+  g.fillStyle = "#f4d35e"; g.fillRect(x + 26, y - 18, 4, 5);
+  g.fillStyle = "#1c1f24"; for (const d of [-17, 17]) { g.beginPath(); g.arc(x + d, y - 5, 7, 0, 6.3); g.fill(); }
+  g.fillStyle = "#b9c0c8"; for (const d of [-17, 17]) { g.beginPath(); g.arc(x + d, y - 5, 3, 0, 6.3); g.fill(); }
+  g.globalAlpha = 1;
+}
+function tBall(g, x, a, sx, sy) {
+  const y = 96 - 46 * Math.sin(Math.PI * (x - 40) / 160);
+  g.globalAlpha = a; g.save(); g.translate(x, y); g.scale(sx || 1, sy || 1);
+  g.fillStyle = "#e07b1f"; g.beginPath(); g.arc(0, 0, 10, 0, 6.3); g.fill();
+  g.strokeStyle = "#5b2e08"; g.lineWidth = 1.5; g.beginPath(); g.arc(0, 0, 10, 0, 6.3); g.moveTo(-10, 0); g.lineTo(10, 0); g.moveTo(0, -10); g.lineTo(0, 10); g.stroke();
+  g.restore(); g.globalAlpha = 1;
+}
+function tSmear(g, kind) { tBack(g, kind); for (let i = 0; i <= 28; i++) { const x = 240 * (0.2 + 0.6 * i / 28); if (kind === "car") tCar(g, x, 0.07); else tBall(g, x, 0.09); } }
+function tDraw(now) {
+  if ($("intro").hidden) return;
+  const k = Math.min(4, Math.floor((now / 300) % 6.5)), W = 240, c = (id) => $(id).getContext("2d");
+  tSmear(c("t1p"), "car"); tSmear(c("t2p"), "ball");
+  let g = c("t1a"); tBack(g, "car"); tCar(g, W * TUT.pos[k], 1);
+  g = c("t1b"); tBack(g, "car"); for (const d of [-9, -4.5, 0, 4.5, 9]) tCar(g, W * TUT.pos[k] + d, 0.3);
+  g = c("t2a"); tBack(g, "ball"); tBall(g, W * TUT.pos[k], 1);
+  g = c("t2b"); tBack(g, "ball"); tBall(g, W * TUT.jit[k], 1, k % 2 ? 1.5 : 0.8, k % 2 ? 0.7 : 1.25);
+  requestAnimationFrame(tDraw);
+}
+
 // ---------- boot ----------
 $("start").addEventListener("click", () => {
   if (!S.started) S.started = new Date().toISOString();
   $("intro").hidden = true; $("bench").hidden = false; save();
   if (S.idx >= S.plan.length) finish(); else show();
 });
+requestAnimationFrame(tDraw);
 fetch("trials.json").then((r) => r.json()).then((d) => {
   S.trials = d.trials; S.quota = d.quota; S.byId = {}; d.trials.forEach((t) => { S.byId[t.id] = t; });
   let st = null; try { st = JSON.parse(lsGet("uq2.state") || "null"); } catch (e) {}
