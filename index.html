@@ -74,11 +74,11 @@ dialog p { margin: 0 0 10px; }
     <h2>Which video is better?</h2>
     <p>Each photo was taken with a long exposure, so things that moved are blurred. Two computer programs each turned the photo into a short video of what happened during the exposure. You see both videos, called A and B, without knowing which program made which.</p>
     <ol>
-      <li>Watch both videos. They play together; you can pause, step one frame at a time and change the speed.</li>
+      <li>Watch both videos. They are short (five frames each) and play together in a loop; you can pause, step one frame at a time and change the speed.</li>
       <li>Answer two questions: which video is <b>sharper and cleaner</b>, and in which the <b>motion looks more natural</b> for this photo. Pick "No difference" if you cannot tell.</li>
       <li>Press <b>Next</b>. Your answers are saved after every pair, so you can stop and come back.</li>
     </ol>
-    <p class="hint"><span id="ntrials">25</span> pairs, about 8 minutes. What is stored: your answers, the time you gave them, a random id kept in this browser and the initials you type below (optional); no name, email or address. They are used only to compare video reconstruction methods.</p>
+    <p class="hint"><span id="ntrials">24</span> pairs, about 8 minutes. What is stored: your answers, the time you gave them, a random id kept in this browser and the initials you type below (optional); no name, email or address. They are used only to compare video reconstruction methods.</p>
     <div class="row">
       <label class="field" for="initials">Initials (optional)<input type="text" id="initials" maxlength="6" autocomplete="off"></label>
       <button type="button" class="primary" id="start" disabled>Start</button>
@@ -136,8 +136,8 @@ dialog p { margin: 0 0 10px; }
 <script>
 const $ = (id) => document.getElementById(id);
 const SUBMIT_URL = "";          // set by build_site.py
-const PROTOCOL = "UQ v1";
-const N_PER_PERSON = 25, LOOP_S = 1.6, HOLD_S = 0.35, TW = 768, TH = 442;
+const PROTOCOL = "UQ v2";
+const LOOP_S = 1.0, HOLD_S = 0.3, TW = 768, TH = 442;
 const S = { trials: [], plan: [], idx: 0, votes: {}, pid: null, t: 0, playing: true, last: 0, imgs: {}, q1: null, q2: null, shown: 0, started: null };
 
 function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
@@ -146,14 +146,17 @@ function rid() { return "q" + Math.random().toString(36).slice(2, 10) + Date.now
 function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 function say(t, err) { $("status").textContent = t; $("status").className = "status" + (err ? " err" : ""); }
 
-// ---------- this person's pairs: the same number from every comparison group, a different photo for each pair where possible ----------
+// ---------- this person's pairs: a fixed number from every comparison group (S.quota), a different photo for each pair where possible;
+// which video is on the left is random, and balanced inside a group (with two pairs of a group, each stored order is used once) ----------
 function makePlan() {
   const groups = {}; S.trials.forEach((t) => (groups[t.g] || (groups[t.g] = [])).push(t));
-  const names = Object.keys(groups), per = Math.floor(N_PER_PERSON / names.length), used = new Set(), plan = [];
-  for (const g of shuffle(names.slice())) {
-    const pool = shuffle(groups[g].slice()); let n = 0;
-    for (const t of pool) { if (n >= per) break; if (used.has(t.w)) continue; used.add(t.w); plan.push({ id: t.id, flip: Math.random() < 0.5 }); n++; }
-    for (const t of pool) { if (n >= per) break; if (plan.some((p) => p.id === t.id)) continue; plan.push({ id: t.id, flip: Math.random() < 0.5 }); n++; }
+  const used = new Set(), plan = [];
+  for (const g of shuffle(Object.keys(groups))) {
+    const pool = shuffle(groups[g].slice()), per = S.quota[g] || 0, got = [];
+    for (const t of pool) { if (got.length >= per) break; if (used.has(t.w)) continue; used.add(t.w); got.push(t); }
+    for (const t of pool) { if (got.length >= per) break; if (got.includes(t)) continue; got.push(t); }
+    const first = Math.random() < 0.5;
+    got.forEach((t, i) => plan.push({ id: t.id, flip: i % 2 === 0 ? first : !first }));
   }
   return shuffle(plan);
 }
@@ -165,7 +168,7 @@ function draw() {
   const c = cur(); if (!c) return;
   for (const [cv, v] of [[$("cvA"), c.left], [$("cvB"), c.right]]) {
     const im = S.imgs[v.c], g = cv.getContext("2d");
-    if (im && im.complete && im.naturalWidth) g.drawImage(im, frameAt(v, S.t) * TW, 0, TW, TH, 0, 0, cv.width, cv.height);
+    if (im && im.complete && im.naturalWidth) g.drawImage(im, v.f[frameAt(v, S.t)] * TW, 0, TW, TH, 0, 0, cv.width, cv.height);
     else { g.fillStyle = "#8894a0"; g.fillRect(0, 0, cv.width, cv.height); }
   }
   $("seek").value = String(Math.round(S.t * 1000));
@@ -245,10 +248,10 @@ $("next").addEventListener("click", () => {
 });
 $("finish").addEventListener("click", finish);
 function renderProgress() { $("progress").textContent = Object.keys(S.votes).length + " of " + S.plan.length + " pairs answered"; }
-function save() { lsSet("uq.state", JSON.stringify({ pid: S.pid, plan: S.plan, idx: S.idx, votes: S.votes, initials: $("initials").value, started: S.started })); }
+function save() { lsSet("uq2.state", JSON.stringify({ pid: S.pid, plan: S.plan, idx: S.idx, votes: S.votes, initials: $("initials").value, started: S.started })); }
 
 // ---------- sending ----------
-function sentSet() { try { return new Set(JSON.parse(lsGet("uq.sent") || "[]")); } catch (e) { return new Set(); } }
+function sentSet() { try { return new Set(JSON.parse(lsGet("uq2.sent") || "[]")); } catch (e) { return new Set(); } }
 function unsent() { const s = sentSet(); return Object.keys(S.votes).filter((k) => !s.has(k)); }
 function flush() {
   if (!SUBMIT_URL) return Promise.resolve(unsent().length);
@@ -259,7 +262,7 @@ function flush() {
         const r = await fetch(SUBMIT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body });
         const t = await r.text();
         if (!r.ok || t.indexOf('"ok":true') < 0) throw new Error("refused");
-        const s = sentSet(); s.add(k); lsSet("uq.sent", JSON.stringify([...s]));
+        const s = sentSet(); s.add(k); lsSet("uq2.sent", JSON.stringify([...s]));
       } catch (e) { break; }
     }
     return unsent().length;
@@ -300,8 +303,8 @@ $("start").addEventListener("click", () => {
   if (S.idx >= S.plan.length) finish(); else show();
 });
 fetch("trials.json").then((r) => r.json()).then((d) => {
-  S.trials = d.trials; S.byId = {}; d.trials.forEach((t) => { S.byId[t.id] = t; });
-  let st = null; try { st = JSON.parse(lsGet("uq.state") || "null"); } catch (e) {}
+  S.trials = d.trials; S.quota = d.quota; S.byId = {}; d.trials.forEach((t) => { S.byId[t.id] = t; });
+  let st = null; try { st = JSON.parse(lsGet("uq2.state") || "null"); } catch (e) {}
   if (st && st.plan && st.plan.every((p) => S.byId[p.id])) {
     S.pid = st.pid; S.plan = st.plan; S.idx = st.idx || 0; S.votes = st.votes || {}; S.started = st.started || null;
     if (st.initials) $("initials").value = st.initials;
