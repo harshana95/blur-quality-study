@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Blur Video Comparison</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a comparison bench. The blurred photo on top, the two unnamed videos side by side under one shared transport, the two questions below. */
+:root {
+  --bg: #eef2f5; --panel: #ffffff; --ink: #14202b; --muted: #566676; --line: #d2dbe3;
+  --accent: #1f5fbf; --accent-soft: #dde8f8; --warn: #a3520c; --done: #1d7f5f;
+  --font-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root {
+  --bg: #0f151b; --panel: #172029; --ink: #e2e9ef; --muted: #91a1b0; --line: #2a3642;
+  --accent: #7fb0ff; --accent-soft: #1d2f4a; --warn: #f0a35e; --done: #5fd0a6; color-scheme: dark } }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.45; }
+.wrap { max-width: 1500px; margin: 0 auto; padding: 18px 16px 40px; display: grid; gap: 14px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; }
+h1 { font-size: 1.35rem; margin: 0; }
+h2 { font-size: 1.05rem; margin: 0; }
+.meta { color: var(--muted); font-family: var(--font-mono); font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; min-width: 0; display: grid; gap: 10px; }
+.intro { max-width: 80ch; }
+.intro p, .intro ol { margin: 0; }
+.intro ol { padding-left: 1.3em; display: grid; gap: 4px; }
+.hint { font-size: 0.85rem; color: var(--muted); margin: 0; }
+.banner { border: 1px solid var(--warn); color: var(--warn); border-radius: 6px; padding: 8px 12px; font-size: 0.9rem; }
+.row { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+label.field { display: grid; gap: 4px; font-size: 0.88rem; color: var(--muted); }
+input[type=text] { font: inherit; border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; background: var(--bg); color: var(--ink); width: 12ch; }
+button { font: inherit; font-size: 0.9rem; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--panel); font-weight: 700; }
+button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); font-weight: 700; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+select { font: inherit; font-size: 0.9rem; border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; background: var(--panel); color: var(--ink); }
+.photo { display: grid; gap: 4px; justify-items: start; }
+.photo img { width: min(100%, 420px); aspect-ratio: 768 / 442; border-radius: 6px; background: var(--line); display: block; }
+.pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+@media (max-width: 720px) { .pair { grid-template-columns: minmax(0, 1fr); } }
+.vid { display: grid; gap: 4px; }
+.vid .tag { font-family: var(--font-mono); font-weight: 600; font-size: 1rem; }
+.vid canvas { width: 100%; aspect-ratio: 768 / 442; border-radius: 6px; background: var(--line); display: block; }
+.transport { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.transport input[type=range] { flex: 1 1 160px; min-width: 120px; accent-color: var(--accent); }
+.q { display: grid; gap: 6px; }
+.q .opts { display: flex; flex-wrap: wrap; gap: 8px; }
+.status { font-size: 0.88rem; color: var(--muted); min-height: 1.3em; }
+.status.err { color: var(--warn); }
+textarea { width: 100%; min-height: 7em; font-family: var(--font-mono); font-size: 0.78rem; border: 1px solid var(--line); border-radius: 6px; padding: 8px; background: var(--bg); color: var(--ink); }
+dialog { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--ink); padding: 22px 24px; width: min(420px, calc(100vw - 48px)); font-family: var(--font-body); }
+dialog::backdrop { background: rgba(10, 16, 22, 0.55); }
+dialog h2 { font-size: 1.25rem; margin: 0 0 8px; }
+dialog p { margin: 0 0 10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Blur Video Comparison</h1>
+    <span class="meta" id="progress">Loading…</span>
+  </header>
+  <div class="banner" id="banner" hidden></div>
+
+  <section class="panel intro" id="intro">
+    <h2>Which video is better?</h2>
+    <p>Each photo was taken with a long exposure, so things that moved are blurred. Two computer programs each turned the photo into a short video of what happened during the exposure. You see both videos, called A and B, without knowing which program made which.</p>
+    <ol>
+      <li>Watch both videos. They play together; you can pause, step one frame at a time and change the speed.</li>
+      <li>Answer two questions: which video is <b>sharper and cleaner</b>, and in which the <b>motion looks more natural</b> for this photo. Pick "No difference" if you cannot tell.</li>
+      <li>Press <b>Next</b>. Your answers are saved after every pair, so you can stop and come back.</li>
+    </ol>
+    <p class="hint"><span id="ntrials">25</span> pairs, about 8 minutes. What is stored: your answers, the time you gave them, a random id kept in this browser and the initials you type below (optional); no name, email or address. They are used only to compare video reconstruction methods.</p>
+    <div class="row">
+      <label class="field" for="initials">Initials (optional)<input type="text" id="initials" maxlength="6" autocomplete="off"></label>
+      <button type="button" class="primary" id="start" disabled>Start</button>
+    </div>
+  </section>
+
+  <section class="panel" id="bench" hidden>
+    <div class="row" style="justify-content: space-between">
+      <h2 id="title">Pair 1</h2>
+      <span class="meta" id="pos"></span>
+    </div>
+    <div class="photo"><img id="photo" alt="The blurred photo both videos were made from"><span class="hint">The blurred photo</span></div>
+    <div class="pair">
+      <div class="vid"><span class="tag">Video A</span><canvas id="cvA" width="768" height="442" role="img" aria-label="Video A"></canvas></div>
+      <div class="vid"><span class="tag">Video B</span><canvas id="cvB" width="768" height="442" role="img" aria-label="Video B"></canvas></div>
+    </div>
+    <div class="transport" aria-label="Playback for both videos">
+      <button type="button" id="play" aria-pressed="true">Pause</button>
+      <button type="button" id="back" aria-label="One frame back">◀ Frame</button>
+      <button type="button" id="fwd" aria-label="One frame forward">Frame ▶</button>
+      <input type="range" id="seek" min="0" max="1000" value="0" aria-label="Position in the videos">
+      <label class="row" style="gap:6px" for="speed">Speed<select id="speed"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option></select></label>
+    </div>
+    <div class="q" role="group" aria-labelledby="q1t">
+      <b id="q1t">1. Which video is sharper and cleaner?</b>
+      <div class="opts" id="q1"><button type="button" data-v="A">Video A</button><button type="button" data-v="B">Video B</button><button type="button" data-v="same">No difference</button></div>
+    </div>
+    <div class="q" role="group" aria-labelledby="q2t">
+      <b id="q2t">2. In which video does the motion look more natural for this photo?</b>
+      <div class="opts" id="q2"><button type="button" data-v="A">Video A</button><button type="button" data-v="B">Video B</button><button type="button" data-v="same">No difference</button></div>
+    </div>
+    <div class="row">
+      <button type="button" class="primary" id="next" disabled>Next</button>
+      <button type="button" id="finish">Finish now</button>
+      <span class="status" id="status" role="status"></span>
+    </div>
+  </section>
+
+  <section class="panel" id="handin" hidden>
+    <h2>Your answers</h2>
+    <p id="handintro" class="hint"></p>
+    <textarea id="hbtext" readonly aria-label="Your answers as text"></textarea>
+    <div class="row"><button type="button" id="hbretry" hidden>Send again</button><button type="button" id="hbcopy">Copy text</button></div>
+    <div class="status" id="hbstatus" role="status"></div>
+  </section>
+</div>
+
+<dialog id="thanks" aria-labelledby="thankshead">
+  <h2 id="thankshead">Thank you!</h2>
+  <p>Your answers help us find out which way of rebuilding a video from one blurred photo people prefer.</p>
+  <p class="hint" id="thanksmsg"></p>
+  <div class="row" style="justify-content:flex-end"><button type="button" class="primary" id="thanksclose">Close</button></div>
+</dialog>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const SUBMIT_URL = "";          // set by build_site.py
+const PROTOCOL = "UQ v1";
+const N_PER_PERSON = 25, LOOP_S = 1.6, HOLD_S = 0.35, TW = 768, TH = 442;
+const S = { trials: [], plan: [], idx: 0, votes: {}, pid: null, t: 0, playing: true, last: 0, imgs: {}, q1: null, q2: null, shown: 0, started: null };
+
+function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+function rid() { return "q" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36); }
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function say(t, err) { $("status").textContent = t; $("status").className = "status" + (err ? " err" : ""); }
+
+// ---------- this person's pairs: the same number from every comparison group, a different photo for each pair where possible ----------
+function makePlan() {
+  const groups = {}; S.trials.forEach((t) => (groups[t.g] || (groups[t.g] = [])).push(t));
+  const names = Object.keys(groups), per = Math.floor(N_PER_PERSON / names.length), used = new Set(), plan = [];
+  for (const g of shuffle(names.slice())) {
+    const pool = shuffle(groups[g].slice()); let n = 0;
+    for (const t of pool) { if (n >= per) break; if (used.has(t.w)) continue; used.add(t.w); plan.push({ id: t.id, flip: Math.random() < 0.5 }); n++; }
+    for (const t of pool) { if (n >= per) break; if (plan.some((p) => p.id === t.id)) continue; plan.push({ id: t.id, flip: Math.random() < 0.5 }); n++; }
+  }
+  return shuffle(plan);
+}
+function cur() { const p = S.plan[S.idx]; if (!p) return null; const t = S.byId[p.id]; return { p, t, left: p.flip ? t.b : t.a, right: p.flip ? t.a : t.b }; }
+
+// ---------- playback: one clock for both videos; each shows its own frame nearest to that moment of the exposure ----------
+function frameAt(v, t) { let k = 0, d = 9; v.t.forEach((x, i) => { const e = Math.abs(x - t); if (e < d - 1e-9) { d = e; k = i; } }); return k; }
+function draw() {
+  const c = cur(); if (!c) return;
+  for (const [cv, v] of [[$("cvA"), c.left], [$("cvB"), c.right]]) {
+    const im = S.imgs[v.c], g = cv.getContext("2d");
+    if (im && im.complete && im.naturalWidth) g.drawImage(im, frameAt(v, S.t) * TW, 0, TW, TH, 0, 0, cv.width, cv.height);
+    else { g.fillStyle = "#8894a0"; g.fillRect(0, 0, cv.width, cv.height); }
+  }
+  $("seek").value = String(Math.round(S.t * 1000));
+}
+function tick(now) {
+  if (!$("bench").hidden && S.playing) {
+    const dt = Math.min(0.1, (now - S.last) / 1000) * Number($("speed").value);
+    S.clock = (S.clock || 0) + dt; S.played = (S.played || 0) + dt;
+    const period = LOOP_S + HOLD_S, ph = S.clock % period;
+    S.t = Math.min(1, ph / LOOP_S);                 // sweep the exposure, then hold the last frame briefly before looping
+    S.shown = Math.floor(S.played / period);
+    draw();
+  }
+  S.last = now; requestAnimationFrame(tick);
+}
+function setPlaying(on) { S.playing = on; $("play").textContent = on ? "Pause" : "Play"; $("play").setAttribute("aria-pressed", String(on)); }
+function instants() { const c = cur(); return [...new Set([...c.left.t, ...c.right.t].map((x) => Math.round(x * 1e4) / 1e4))].sort((a, b) => a - b); }
+function step(dir) {
+  setPlaying(false);
+  const ts = instants(), eps = 1e-4;
+  const c = cur(), sig = (t) => frameAt(c.left, t) + "|" + frameAt(c.right, t), now = sig(S.t);
+  let n = S.t;
+  for (let i = 0; i <= ts.length; i++) {                       // skip moments where neither picture changes
+    let m = dir > 0 ? ts.find((x) => x > n + eps) : [...ts].reverse().find((x) => x < n - eps);
+    if (m === undefined) m = dir > 0 ? ts[0] : ts[ts.length - 1];
+    n = m; if (sig(n) !== now) break;
+  }
+  S.t = n; S.clock = n * LOOP_S; draw();
+}
+$("play").addEventListener("click", () => setPlaying(!S.playing));
+$("back").addEventListener("click", () => step(-1));
+$("fwd").addEventListener("click", () => step(1));
+$("seek").addEventListener("input", () => { setPlaying(false); S.t = Number($("seek").value) / 1000; S.clock = S.t * LOOP_S; draw(); });
+document.addEventListener("keydown", (e) => {
+  if ($("bench").hidden || e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === " ") { e.preventDefault(); setPlaying(!S.playing); }
+  if (e.key === "ArrowLeft") { e.preventDefault(); step(-1); }
+  if (e.key === "ArrowRight") { e.preventDefault(); step(1); }
+});
+
+// ---------- one pair ----------
+function load(v) { if (!S.imgs[v.c]) { const im = new Image(); im.onload = () => { draw(); gate(); }; im.onerror = () => { im.failed = true; gate(); }; im.src = "v/" + v.c + ".jpg"; S.imgs[v.c] = im; } }
+function ready(v) { const im = S.imgs[v.c]; return !!(im && im.complete && im.naturalWidth); }
+function gate() {
+  const c = cur(); if (!c || $("bench").hidden) return;
+  const ok = ready(c.left) && ready(c.right), bad = [c.left, c.right].some((v) => S.imgs[v.c] && S.imgs[v.c].failed);
+  for (const q of ["q1", "q2"]) $(q).querySelectorAll("button").forEach((b) => { b.disabled = !ok; });
+  $("next").disabled = !(ok && S.q1 && S.q2);
+  if (bad) say("A video did not load. Check your connection and reload the page; your answers so far are kept.", true);
+  else say(ok ? "" : "Loading the videos…");
+}
+function show() {
+  const c = cur();
+  if (!c) { finish(); return; }
+  $("title").textContent = "Pair " + (S.idx + 1); $("pos").textContent = (S.idx + 1) + " of " + S.plan.length;
+  $("photo").src = "v/" + c.t.w + "_in.jpg";
+  load(c.left); load(c.right);
+  const nx = cur2(S.idx + 1); if (nx) { load(nx.left); load(nx.right); }      // warm the next pair
+  S.q1 = S.q2 = null; S.t = 0; S.clock = 0; S.played = 0; S.shown = 0; S.t0 = performance.now(); setPlaying(true);
+  for (const q of ["q1", "q2"]) $(q).querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", "false"));
+  $("next").disabled = true; say(""); draw(); gate(); renderProgress();
+}
+function cur2(i) { const p = S.plan[i]; if (!p) return null; const t = S.byId[p.id]; return { left: p.flip ? t.b : t.a, right: p.flip ? t.a : t.b }; }
+for (const q of ["q1", "q2"]) $(q).addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  S[q] = b.dataset.v;
+  $(q).querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+  gate();
+});
+function pick(v, c) { return v === "same" ? "same" : (v === "A" ? c.left.c : c.right.c); }
+$("next").addEventListener("click", () => {
+  const c = cur(); if (!c || !S.q1 || !S.q2) return;
+  S.votes[c.p.id] = { trial: c.p.id, group: c.t.g, window: c.t.w, left: c.left.c, right: c.right.c, sharper: pick(S.q1, c), motion: pick(S.q2, c),
+    ms: Math.round(performance.now() - S.t0), loops: S.shown, at: new Date().toISOString() };
+  S.idx++; save(); flush();
+  if (S.idx >= S.plan.length) finish(); else show();
+});
+$("finish").addEventListener("click", finish);
+function renderProgress() { $("progress").textContent = Object.keys(S.votes).length + " of " + S.plan.length + " pairs answered"; }
+function save() { lsSet("uq.state", JSON.stringify({ pid: S.pid, plan: S.plan, idx: S.idx, votes: S.votes, initials: $("initials").value, started: S.started })); }
+
+// ---------- sending ----------
+function sentSet() { try { return new Set(JSON.parse(lsGet("uq.sent") || "[]")); } catch (e) { return new Set(); } }
+function unsent() { const s = sentSet(); return Object.keys(S.votes).filter((k) => !s.has(k)); }
+function flush() {
+  if (!SUBMIT_URL) return Promise.resolve(unsent().length);
+  S.sending = (S.sending || Promise.resolve()).then(async () => {
+    for (const k of unsent()) {
+      const body = JSON.stringify(Object.assign({ protocol: PROTOCOL, pid: S.pid, initials: ($("initials").value || "").trim().slice(0, 6), started_at: S.started }, S.votes[k]));
+      try {
+        const r = await fetch(SUBMIT_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body });
+        const t = await r.text();
+        if (!r.ok || t.indexOf('"ok":true') < 0) throw new Error("refused");
+        const s = sentSet(); s.add(k); lsSet("uq.sent", JSON.stringify([...s]));
+      } catch (e) { break; }
+    }
+    return unsent().length;
+  });
+  return S.sending;
+}
+function finish() {
+  setPlaying(false); $("bench").hidden = true; $("handin").hidden = false; renderProgress();
+  const n = Object.keys(S.votes).length;
+  $("hbtext").value = JSON.stringify({ protocol: PROTOCOL, pid: S.pid, initials: ($("initials").value || "").trim().slice(0, 6), started_at: S.started, votes: Object.values(S.votes) });
+  const d = $("thanks"); $("thanksmsg").textContent = SUBMIT_URL ? "Sending your answers…" : n + " pairs answered. One more step: send your answers as shown on the page behind this message.";
+  if (!d.open) { if (d.showModal) d.showModal(); else d.setAttribute("open", ""); }
+  report();
+}
+function report() {
+  const n = Object.keys(S.votes).length;
+  if (!SUBMIT_URL) { $("handintro").textContent = "Your answers could not be sent automatically from this page. Copy the text below and send it to the person who gave you this link."; return; }
+  $("handintro").textContent = "Sending your answers…";
+  flush().then((left) => {
+    $("hbretry").hidden = !left;
+    $("handintro").textContent = left ? (n - left) + " of " + n + " answers were sent. Press Send again, or copy the text below and send it to the person who gave you this link."
+      : "All " + n + " answers were sent. Thank you. You can close this page.";
+    if ($("thanks").open) $("thanksmsg").textContent = left ? (n - left) + " of " + n + " answers were sent. Close this message and press Send again." : "All " + n + " answers were sent. You can close this page.";
+  });
+}
+$("hbretry").addEventListener("click", report);
+$("thanksclose").addEventListener("click", () => { const d = $("thanks"); if (d.close) d.close(); else d.removeAttribute("open"); });
+$("hbcopy").addEventListener("click", () => {
+  const st = $("hbstatus"), fb = () => { $("hbtext").focus(); $("hbtext").select(); st.textContent = "Could not copy automatically. The text is selected: copy it with your keyboard."; };
+  if (!navigator.clipboard || !navigator.clipboard.writeText) { fb(); return; }
+  navigator.clipboard.writeText($("hbtext").value).then(() => { st.textContent = "Copied."; }, fb);
+});
+
+// ---------- boot ----------
+$("start").addEventListener("click", () => {
+  if (!S.started) S.started = new Date().toISOString();
+  $("intro").hidden = true; $("bench").hidden = false; save();
+  if (S.idx >= S.plan.length) finish(); else show();
+});
+fetch("trials.json").then((r) => r.json()).then((d) => {
+  S.trials = d.trials; S.byId = {}; d.trials.forEach((t) => { S.byId[t.id] = t; });
+  let st = null; try { st = JSON.parse(lsGet("uq.state") || "null"); } catch (e) {}
+  if (st && st.plan && st.plan.every((p) => S.byId[p.id])) {
+    S.pid = st.pid; S.plan = st.plan; S.idx = st.idx || 0; S.votes = st.votes || {}; S.started = st.started || null;
+    if (st.initials) $("initials").value = st.initials;
+    if (S.idx > 0) $("start").textContent = S.idx >= S.plan.length ? "See my answers" : "Continue";
+  } else { S.pid = rid(); S.plan = makePlan(); }
+  $("ntrials").textContent = String(S.plan.length); $("start").disabled = false; renderProgress();
+  if (!SUBMIT_URL) { $("banner").hidden = false; $("banner").textContent = "Answers are kept in this browser and handed in by copying a text at the end."; }
+  requestAnimationFrame(tick);
+}).catch(() => { $("progress").textContent = "Could not load the study. Reload the page."; });
+</script>
+</body>
+</html>
